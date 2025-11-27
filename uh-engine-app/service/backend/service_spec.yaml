@@ -1,0 +1,22 @@
+spec:
+  containers:
+    - name: backend
+      image: goistmo-uswest.registry.snowflakecomputing.com/uh_engine_config/app/uh_engine_app_repository/uh_engine_backend:version1
+      env:
+        SNOWFLAKE_ROLE: UH_APP_ROLE
+        SNOWFLAKE_WAREHOUSE: UH_ENGINE_WAREHOUSE
+        SNOWFLAKE_DATABASE: ENTITY_MANAGER_DEV
+        SNOWFLAKE_SCHEMA: _1_SOURCE_DATA
+      readinessProbe:
+        port: 8000
+        path: /health
+      volumeMounts:
+        - name: app-volumes
+          mountPath: /app/volumes
+  volumes:
+    - name: app-volumes
+      source: "@UH_ENGINE_CONFIG.APP.UH_ENGINE_APP_VOLUMES"
+  endpoints:
+    - name: http
+      port: 8000
+      public: true

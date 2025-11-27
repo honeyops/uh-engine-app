@@ -1,0 +1,36 @@
+# For more information on creating manifest, go to https://docs.snowflake.com/en/developer-guide/native-apps/creating-manifest
+manifest_version: 1
+
+version:
+  name: Dev
+  label: "Dev Version"
+  comment: "Default version used for development. Override for actual deployment."
+
+configuration:
+  log_level: INFO
+  trace_level: ALWAYS
+  grant_callback: setup.create_service
+
+artifacts:
+  readme: README.md
+
+  default_web_endpoint:
+    service: services.uh_engine_app_service
+    endpoint: my-endpoint
+
+  setup_script: setup.sql
+
+  container_services:
+    images:
+      - /uh_engine_app_database/public/images/uh_engine_app_service:latest
+
+privileges:
+  - CREATE COMPUTE POOL:
+      required_at_setup: true
+      description: "The Unified Honey application requires permission to create compute pools"
+  - BIND SERVICE ENDPOINT:
+      required_at_setup: true
+      description: "The Unified Honey application requires permission to create endpoints in services"
+  - CREATE DATABASE:
+      required_at_setup: true
+      description: "The Unified Honey application requires permission to create the UNIFIED_HONEY database in the customer account"

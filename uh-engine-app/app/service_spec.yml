@@ -1,0 +1,18 @@
+spec:
+  container:
+  - name: my-service
+    image: /uh_engine_app_database/public/images/uh_engine_app_service:latest
+    env:
+      PORT: 8080
+      SNOWFLAKE_WAREHOUSE: "NATIVE_APP_WH"
+      SNOWFLAKE_DATABASE: "UNIFIED_HONEY_APPLICATION"
+      SNOWFLAKE_SCHEMA: "CORE"
+      CONFIG_SCHEMA_NAME: "core"
+      DEPLOYMENT_LOGS_SCHEMA_NAME: "CORE"
+    readinessProbe:
+      port: 8080
+      path: /health
+  endpoint:
+  - name: my-endpoint
+    port: 8080
+    public: true

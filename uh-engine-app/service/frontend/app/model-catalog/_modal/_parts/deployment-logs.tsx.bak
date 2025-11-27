@@ -1,0 +1,284 @@
+'use client'
+
+import { useEffect, useRef, useMemo, useState } from 'react'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { useModelCatalogWizard, type DeploymentLog } from '@/lib/state/model-catalog-wizard'
+import { Terminal, Download, AlertCircle, ChevronUp } from 'lucide-react'
+
+// Format timestamp for display (HH:MM:SS)
+function formatTime(timestamp: string): string {
+	try {
+		const date = new Date(timestamp)
+		return date.toLocaleTimeString('en-US', { hour12: false })
+	} catch {
+		return ''
+	}
+}
+
+// Get color class based on log level
+function getLevelColor(level: string): string {
+	switch (level.toUpperCase()) {
+		case 'ERROR':
+			return 'text-red-600'
+		case 'WARNING':
+			return 'text-amber-600'
+		case 'SUCCESS':
+			return 'text-emerald-600'
+		case 'INFO':
+		default:
+			return 'text-blue-600'
+	}
+}
+
+// Get level badge for structured display
+function getLevelBadge(level: string): string {
+	switch (level.toUpperCase()) {
+		case 'ERROR':
+			return '•'
+		case 'WARNING':
+			return '⚠'
+		case 'SUCCESS':
+			return '•'
+		case 'INFO':
+		default:
+			return '•'
+	}
+}
+
+// Export logs to CSV
+function exportLogsToCSV(logs: DeploymentLog[]) {
+	const headers = ['Timestamp', 'Level', 'Step', 'Object', 'Message']
+	const rows = logs.map(log => [
+		log.timestamp,
+		log.level,
+		log.step,
+		log.object_name,
+		// Escape quotes in message for CSV
+		`"${log.message.replace(/"/g, '""')}"`,
+	])
+
+	const csvContent = [
+		headers.join(','),
+		...rows.map(row => row.join(','))
+	].join('\n')
+
+	// Create blob and download
+	const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+	const link = document.createElement('a')
+	const url = URL.createObjectURL(blob)
+	link.setAttribute('href', url)
+	link.setAttribute('download', `deployment-logs-${new Date().toISOString().split('T')[0]}.csv`)
+	link.style.visibility = 'hidden'
+	document.body.appendChild(link)
+	link.click()
+	document.body.removeChild(link)
+}
+
+export default function DeploymentLogs() {
+	const wizard = useModelCatalogWizard()
+	const logEndRef = useRef<HTMLDivElement>(null)
+	const errorRefs = useRef<Map<number, HTMLDivElement>>(new Map())
+
+	// Extract error logs and create unique error messages
+	const errorSummary = useMemo(() => {
+		const errorLogs = wizard.logLines
+			.map((log, index) => ({ ...log, index }))
+			.filter(log => log.level?.toUpperCase() === 'ERROR')
+
+		if (errorLogs.length === 0) return null
+
+		// Get unique error messages
+		const uniqueErrors = Array.from(
+			new Map(errorLogs.map(log => [log.message, log])).values()
+		)
+
+		return {
+			total: errorLogs.length,
+			unique: uniqueErrors,
+			firstErrorIndex: errorLogs[0]?.index ?? 0
+		}
+	}, [wizard.logLines])
+
+	// Auto-scroll to bottom when new logs are added
+	useEffect(() => {
+		if (logEndRef.current) {
+			logEndRef.current.scrollIntoView({ behavior: 'smooth' })
+		}
+	}, [wizard.logLines])
+
+	// Scroll to first error
+	const scrollToFirstError = () => {
+		if (errorSummary) {
+			const firstErrorElement = errorRefs.current.get(errorSummary.firstErrorIndex)
+			if (firstErrorElement) {
+				firstErrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+			}
+		}
+	}
+
+	// Determine status based on logs and deploying state
+	let statusBadge = null
+	if (wizard.isDeploying) {
+		statusBadge = <Badge variant="default" className="bg-blue-500">Deploying...</Badge>
+	} else if (wizard.logLines.length > 0) {
+		const hasErrors = wizard.logLines.some(log => log.level?.toUpperCase() === 'ERROR')
+		const lastLog = wizard.logLines[wizard.logLines.length - 1]
+		const hasCompletionMessage = lastLog?.message?.toLowerCase().includes('complete') || 
+			lastLog?.message?.toLowerCase().includes('successfully') ||
+			lastLog?.message?.toLowerCase().includes('deployment successful') ||
+			lastLog?.message?.toLowerCase().includes('deployment complete')
+
+		// If deployment finished (isDeploying is false) and we have logs, show Complete
+		if (!wizard.isDeploying && (hasCompletionMessage || lastLog)) {
+			if (hasErrors) {
+				statusBadge = <Badge variant="destructive">Failed</Badge>
+			} else {
+				statusBadge = <Badge variant="default" className="bg-emerald-500">Complete</Badge>
+			}
+		} else if (hasErrors) {
+			statusBadge = <Badge variant="destructive">Failed</Badge>
+		} else {
+			statusBadge = <Badge variant="secondary">Ready</Badge>
+		}
+	} else {
+		statusBadge = <Badge variant="secondary">Ready</Badge>
+	}
+
+	return (
+		<div className="flex flex-col border rounded-md overflow-hidden h-full flex-1 min-h-0">
+			<div className="flex items-center justify-between px-4 py-3 border-b bg-muted/40 shrink-0">
+				<div className="flex items-center gap-2">
+					<Terminal className="h-4 w-4" />
+					<div className="text-sm font-medium">Deployment Logs</div>
+				</div>
+				<div className="flex items-center gap-2">
+					<Button
+						variant="ghost"
+						size="sm"
+						onClick={() => {}}
+						className="h-8 w-8 p-0"
+						title={isLightTheme ? 'Switch to dark theme' : 'Switch to light theme'}
+					>
+						{isLightTheme ? (
+							<Moon className="h-4 w-4" />
+						) : (
+							<Sun className="h-4 w-4" />
+						)}
+					</Button>
+					{statusBadge}
+					{wizard.logLines.length > 0 && !wizard.isDeploying && (
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => exportLogsToCSV(wizard.logLines)}
+							className="h-8"
+						>
+							<Download className="h-3.5 w-3.5 mr-1.5" />
+							Export CSV
+						</Button>
+					)}
+				</div>
+			</div>
+			<ScrollArea className={`flex-1 min-h-0 p-4 ${isLightTheme ? 'bg-white text-slate-900' : 'bg-slate-950 text-slate-50'}`}>
+				{wizard.logLines.length === 0 ? (
+					<div className={`text-sm py-8 font-mono ${isLightTheme ? 'text-slate-500' : 'text-slate-400'}`}>
+						Waiting for deployment to start...
+					</div>
+				) : (
+					<div className="space-y-0.5">
+						{wizard.logLines.map((log, index) => {
+							const isError = log.level?.toUpperCase() === 'ERROR'
+							const level = log.level?.toUpperCase() || 'INFO'
+
+							// Badge styling based on level
+							let badgeClasses = ''
+							switch (level) {
+								case 'ERROR':
+									badgeClasses = 'bg-red-100 text-red-700 border-red-300'
+									break
+								case 'WARNING':
+									badgeClasses = 'bg-amber-100 text-amber-700 border-amber-300'
+									break
+								case 'SUCCESS':
+									badgeClasses = 'bg-green-100 text-green-700 border-green-300'
+									break
+								case 'INFO':
+								default:
+									badgeClasses = 'bg-blue-100 text-blue-700 border-blue-300'
+									break
+							}
+
+							return (
+								<div
+									key={index}
+									ref={(el) => {
+										if (el && isError) {
+											errorRefs.current.set(index, el)
+										} else if (!isError) {
+											errorRefs.current.delete(index)
+										}
+									}}
+									className="text-sm flex items-start gap-2 py-0.5"
+								>
+									{/* Level badge */}
+									<Badge variant="outline" className={`shrink-0 text-xs font-medium border ${badgeClasses}`}>
+										{level}
+									</Badge>
+
+									{/* Message */}
+									<span className="flex-1 text-sm">
+										{log.message}
+									</span>
+								</div>
+							)
+						})}
+						<div ref={logEndRef} />
+					</div>
+				)}
+			</ScrollArea>
+			{/* Error Summary Footer */}
+			{errorSummary && !wizard.isDeploying && (
+				<div className={`border-t shrink-0 max-h-[120px] overflow-hidden flex flex-col ${isLightTheme ? 'border-red-500/50 bg-red-50' : 'border-red-500/50 bg-slate-900'}`}>
+					<div className="px-4 py-3 flex-1 min-h-0 overflow-y-auto">
+						<div className="flex items-start gap-3">
+							<AlertCircle className={`h-5 w-5 shrink-0 mt-0.5 ${isLightTheme ? 'text-red-600' : 'text-red-400'}`} />
+							<div className="flex-1 min-w-0">
+								<div className="flex items-center gap-2 mb-2">
+									<span className={`text-sm font-semibold ${isLightTheme ? 'text-red-600' : 'text-red-400'}`}>
+										Error Summary
+									</span>
+									<Badge variant="destructive" className="text-xs">
+										{errorSummary.total} {errorSummary.total === 1 ? 'error' : 'errors'}
+									</Badge>
+								</div>
+								<div className="space-y-1.5">
+									{errorSummary.unique.slice(0, 3).map((error, idx) => (
+										<div key={idx} className={`text-xs font-mono ${isLightTheme ? 'text-red-600' : 'text-red-400'}`}>
+											• {error.message}
+										</div>
+									))}
+									{errorSummary.unique.length > 3 && (
+										<div className={`text-xs ${isLightTheme ? 'text-red-600/80' : 'text-red-400/80'}`}>
+											+ {errorSummary.unique.length - 3} more unique {errorSummary.unique.length - 3 === 1 ? 'error' : 'errors'}
+										</div>
+									)}
+								</div>
+							</div>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={scrollToFirstError}
+								className="h-8 shrink-0 bg-red-500 text-white border-red-500 hover:bg-red-500/80 hover:border-red-500 hover:text-white"
+							>
+								<ChevronUp className="h-3.5 w-3.5 mr-1.5" />
+								Go to first error
+							</Button>
+						</div>
+					</div>
+				</div>
+			)}
+		</div>
+	)
+}

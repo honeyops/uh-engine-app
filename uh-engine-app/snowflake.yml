@@ -1,0 +1,20 @@
+# This is a project definition file, a required component if you intend to use Snowflake CLI in a project directory such as this template.
+
+definition_version: 2
+entities:
+  pkg:
+    type: application package
+    identifier: unified_honey_application_pkg
+    artifacts:
+      - src: app/*
+        dest: ./
+    
+    manifest: app/manifest.yml
+    
+
+  app:
+    type: application
+    from:
+      target: pkg
+    identifier: unified_honey_application
+
