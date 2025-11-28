@@ -48,6 +48,7 @@ def _get_pooled_connection() -> snowflake.connector.SnowflakeConnection:
         token_path = "/snowflake/session/token"
 
         if os.path.isfile(token_path):
+            warehouse = os.getenv("SNOWFLAKE_WAREHOUSE")
             creds = {
                 "host": os.getenv("SNOWFLAKE_HOST"),
                 "port": os.getenv("SNOWFLAKE_PORT"),
@@ -55,7 +56,7 @@ def _get_pooled_connection() -> snowflake.connector.SnowflakeConnection:
                 "account": os.getenv("SNOWFLAKE_ACCOUNT"),
                 "authenticator": "oauth",
                 "token": open(token_path, "r").read(),
-                "warehouse": os.getenv("SNOWFLAKE_WAREHOUSE"),
+                "warehouse": warehouse,
                 "database": os.getenv("SNOWFLAKE_DATABASE"),
                 "schema": os.getenv("SNOWFLAKE_SCHEMA"),
                 "client_session_keep_alive": True,
@@ -83,9 +84,17 @@ def _get_pooled_connection() -> snowflake.connector.SnowflakeConnection:
                 creds["private_key_file_pwd"] = private_key_passphrase
 
         _connection_pool = snowflake.connector.connect(**creds)
-        # Warehouse is set via connection parameters - Snowflake should handle activation automatically
-        # If queries fail with warehouse errors, customer needs to grant: GRANT USAGE ON WAREHOUSE <name> TO APPLICATION ROLE app_public;
         _pool_initialized = True
+
+        # Explicitly activate warehouse for SPCS OAuth connections
+        if os.path.isfile(token_path) and warehouse:
+            try:
+                with _connection_pool.cursor() as cur:
+                    cur.execute(f"USE WAREHOUSE {warehouse}")
+                logger.info(f"Activated warehouse: {warehouse}")
+            except Exception as e:
+                logger.warning(f"Failed to activate warehouse {warehouse}: {e}")
+
         logger.info("Pooled connection established successfully")
         return _connection_pool
 
@@ -126,6 +135,7 @@ class SnowflakeClient:
         else:
             # Create a dedicated connection (for special cases)
             if os.path.isfile(self._token_path):
+                warehouse = os.getenv("SNOWFLAKE_WAREHOUSE")
                 creds = {
                     "host": os.getenv("SNOWFLAKE_HOST"),
                     "port": os.getenv("SNOWFLAKE_PORT"),
@@ -133,7 +143,7 @@ class SnowflakeClient:
                     "account": os.getenv("SNOWFLAKE_ACCOUNT"),
                     "authenticator": "oauth",
                     "token": open(self._token_path, "r").read(),
-                    "warehouse": os.getenv("SNOWFLAKE_WAREHOUSE"),
+                    "warehouse": warehouse,
                     "database": os.getenv("SNOWFLAKE_DATABASE"),
                     "schema": os.getenv("SNOWFLAKE_SCHEMA"),
                     "client_session_keep_alive": True,
@@ -160,8 +170,16 @@ class SnowflakeClient:
                     creds["private_key_file_pwd"] = private_key_passphrase
 
             self._conn = snowflake.connector.connect(**creds)
-            # Warehouse is set via connection parameters - Snowflake should handle activation automatically
             self._owns_connection = True
+
+            # Explicitly activate warehouse for SPCS OAuth connections
+            if os.path.isfile(self._token_path) and warehouse:
+                try:
+                    with self._conn.cursor() as cur:
+                        cur.execute(f"USE WAREHOUSE {warehouse}")
+                    logger.info(f"Activated warehouse: {warehouse}")
+                except Exception as e:
+                    logger.warning(f"Failed to activate warehouse {warehouse}: {e}")
 
     def close(self) -> None:
         if self._conn is not None:
@@ -190,25 +208,6 @@ class SnowflakeClient:
                         last_rows = c.fetchall()
                 return last_rows
             except Exception as e:
-                error_str = str(e)
-                # If warehouse error, try to activate warehouse and retry once
-                if "No active warehouse" in error_str or "000606" in error_str:
-                    warehouse = os.getenv("SNOWFLAKE_WAREHOUSE")
-                    if warehouse:
-                        try:
-                            logger.warning(f"Warehouse not active, activating {warehouse} and retrying")
-                            with self._conn.cursor() as cur:
-                                cur.execute(f"USE WAREHOUSE {warehouse}")
-                            # Retry the original query
-                            for c in self._conn.execute_string(sql_trimmed):
-                                if c and c.description is not None:
-                                    last_rows = c.fetchall()
-                            return last_rows
-                        except Exception as retry_error:
-                            truncated_sql = sql_trimmed.replace("\n", " ")[:500]
-                            logger.exception("Snowflake SQL execution failed after warehouse retry", extra={"sql": truncated_sql})
-                            raise Exception(f"SQL execution failed ({truncated_sql}): {str(retry_error)}")
-                
                 truncated_sql = sql_trimmed.replace("\n", " ")[:500]
                 logger.exception("Snowflake SQL execution failed", extra={"sql": truncated_sql})
                 raise Exception(f"SQL execution failed ({truncated_sql}): {str(e)}")
@@ -220,25 +219,6 @@ class SnowflakeClient:
                     return cur.fetchall()
                 return []
             except Exception as e:
-                error_str = str(e)
-                # If warehouse error, try to activate warehouse and retry once
-                if "No active warehouse" in error_str or "000606" in error_str:
-                    warehouse = os.getenv("SNOWFLAKE_WAREHOUSE")
-                    logger.error(f"Warehouse error detected. Attempting to activate warehouse: '{warehouse}'")
-                    if warehouse:
-                        try:
-                            logger.warning(f"Warehouse '{warehouse}' not active, attempting to activate and retry")
-                            cur.execute(f"USE WAREHOUSE {warehouse}")
-                            # Retry the original query
-                            cur.execute(sql_trimmed, params)
-                            if cur.description is not None:
-                                return cur.fetchall()
-                            return []
-                        except Exception as retry_error:
-                            truncated_sql = sql_trimmed.replace("\n", " ")[:500]
-                            logger.exception("Snowflake SQL execution failed after warehouse retry", extra={"sql": truncated_sql})
-                            raise Exception(f"SQL execution failed ({truncated_sql}): {str(retry_error)}")
-                
                 truncated_sql = sql_trimmed.replace("\n", " ")[:500]
                 logger.exception("Snowflake SQL execution failed", extra={"sql": truncated_sql})
                 raise Exception(f"SQL execution failed ({truncated_sql}): {str(e)}")

@@ -12,6 +12,7 @@ snow sql -q "create image repository if not exists $DB_NAME.$SCHEMA_NAME.$IMAGE_
 
 IMAGE_REPO_URL=$(snow spcs image-repository url $IMAGE_REPO_NAME --database $DB_NAME --schema $SCHEMA_NAME)
 IMAGE_FQN="$IMAGE_REPO_URL/$SERVICE_NAME"
+echo "IMAGE_FQN: $IMAGE_FQN"
 
 # build and push the image (uses :latest implicitly)
 docker buildx build --platform=linux/amd64 -t $IMAGE_FQN $DIR_NAME

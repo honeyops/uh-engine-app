@@ -34,3 +34,23 @@ privileges:
   - CREATE DATABASE:
       required_at_setup: true
       description: "The Unified Honey application requires permission to create the UNIFIED_HONEY database in the customer account"
+
+references:
+  - consumer_warehouse:
+      label: "Application Warehouse"
+      description: "A warehouse in the consumer account for executing queries and running the application service"
+      privileges:
+        - USAGE
+        - OPERATE
+      object_type: WAREHOUSE
+      multi_valued: false
+      register_callback: config.register_warehouse
+  - source_databases:
+      label: "Source Databases"
+      description: "One or more databases in the consumer account to read data from"
+      privileges:
+        - USAGE
+        - REFERENCE_USAGE
+      object_type: DATABASE
+      multi_valued: true
+      register_callback: config.register_databases

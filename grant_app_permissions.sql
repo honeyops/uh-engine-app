@@ -1,12 +1,15 @@
 -- Grant permissions to Unified Honey Engine Native App
 -- Run these queries as ACCOUNTADMIN or a role with sufficient privileges
--- Replace APPLICATION_NAME with your actual application name if different
+
+-- IMPORTANT: You must be in the application context to grant to application roles
+USE APPLICATION unified_honey_application;
 
 -- ============================================================================
 -- 1. WAREHOUSE PERMISSIONS (CRITICAL - Required for all SQL queries)
 -- ============================================================================
 -- Grant usage on the warehouse that the app will use
 -- Replace NATIVE_APP_WH with your warehouse name if different
+-- NOTE: You must have OPERATE privilege on the warehouse to grant usage
 GRANT USAGE ON WAREHOUSE NATIVE_APP_WH TO APPLICATION ROLE app_public;
 
 -- ============================================================================
