@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useMemo, useCallback, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
 	Table,
@@ -1301,22 +1302,36 @@ export default function FieldBindings() {
 	}, [getExpectedTypeForField, getColumnTypeByName, columnsUsedByNodes, columnsUsedByDataColumns, wizard.bindingMappings, blueprintBindingsData])
 
 	// Update blueprint status when fields or bindings change
-	const prevStatusRef = useRef<{ fieldsHash: string; table: string; status: string } | null>(null)
+	// Use refs to track values and prevent infinite loops
+	const bindingMappingsHashRef = useRef<string>('')
+	const prevBindingMappingsHashRef = useRef<string>('')
+	const prevTableRef = useRef<string>('')
+	const prevStatusRef = useRef<string | null>(null)
+	const fieldsRef = useRef(fields)
+	
+	// Keep refs updated with current values
 	useEffect(() => {
-		if (!k || fields.length === 0) return
+		fieldsRef.current = fields
+		bindingMappingsHashRef.current = JSON.stringify(wizard.bindingMappings)
+	}, [fields, wizard.bindingMappings])
+	
+	useEffect(() => {
+		if (!k || fieldsRef.current.length === 0) return
 
 		// Skip status calculation during initial load to preserve persisted status
 		if (!initialLoadCompleteRef.current) {
 			return
 		}
 
-		// Create a hash of fields to detect actual changes
-		const fieldsHash = JSON.stringify(fields.map(f => ({ name: f.fieldName, binding: f.binding })))
+		// Get current values from refs
+		const bindingMappingsHash = bindingMappingsHashRef.current
+		const currentTable = binding.table || ''
+		const currentFields = fieldsRef.current
 
-		// Skip if nothing changed
+		// Skip if nothing changed - compare hashes and table
 		if (
-			prevStatusRef.current?.fieldsHash === fieldsHash &&
-			prevStatusRef.current?.table === binding.table
+			prevBindingMappingsHashRef.current === bindingMappingsHash &&
+			prevTableRef.current === currentTable
 		) {
 			return
 		}
@@ -1326,7 +1341,7 @@ export default function FieldBindings() {
 		let boundCount = 0
 		let unboundCount = 0
 
-		fields.forEach((field) => {
+		currentFields.forEach((field) => {
 			// Skip subheading rows
 			if (field.isSubheading) {
 				return
@@ -1367,12 +1382,15 @@ export default function FieldBindings() {
 		}
 
 		// Only update if status actually changed
-		const previousStatus = prevStatusRef.current?.status
-		if (previousStatus !== status) {
+		if (prevStatusRef.current !== status) {
 			setBlueprintStatus(k, status)
-			prevStatusRef.current = { fieldsHash, table: binding.table, status }
+			prevStatusRef.current = status
 		}
-	}, [k, fields, binding.table, setBlueprintStatus])
+		
+		// Always update refs to prevent re-running
+		prevBindingMappingsHashRef.current = bindingMappingsHash
+		prevTableRef.current = currentTable
+	}, [k, binding.table, setBlueprintStatus])
 
 	if (!k) {
 		return (
@@ -1396,7 +1414,8 @@ export default function FieldBindings() {
 	const isDirty = wizard.getDirtyState(k || '')
 
     return (
-            <div className="space-y-4">
+		<>
+			<div className="space-y-4">
 	                {!binding.table && (
                         <div className="text-xs text-muted-foreground px-3 py-2">
                                 Select a database, schema, and table to enable column mapping.
@@ -2125,175 +2144,176 @@ export default function FieldBindings() {
 				/>
 			</div>
 
-			{/* Key Mappings Info Dialog */}
-			<Dialog open={openInfoModal === 'keyMappings'} onOpenChange={(open) => !open && setOpenInfoModal(null)}>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>About Key Mappings</DialogTitle>
-						<DialogDescription>
-							Information about the Key Mappings section
-						</DialogDescription>
-					</DialogHeader>
-					<div className="py-4 space-y-4">
-						<p className="text-sm text-muted-foreground">
-							The Key Mappings section defines the primary and secondary keys that uniquely identify records in your dimensional model. These keys are essential for establishing relationships between tables and ensuring data integrity.
-						</p>
-						<div className="space-y-2">
-							<p className="text-sm font-medium">Primary Node:</p>
-							<p className="text-sm text-muted-foreground">
-								The primary node represents the main entity or dimension in your model. It typically maps to the primary key columns from your source table that uniquely identify each record.
-							</p>
-							<p className="text-sm font-medium">Secondary Nodes:</p>
-							<p className="text-sm text-muted-foreground">
-								Secondary nodes represent related entities or dimensions that connect to the primary node. These are used to create relationships and hierarchies in your dimensional model. You can select multiple columns for composite keys.
-							</p>
-						</div>
-					</div>
-					<DialogFooter>
-						<Button onClick={() => setOpenInfoModal(null)}>Got it</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
+			{/* Info Dialogs - rendered via Portal to avoid nested Dialog portals */}
+			{typeof window !== 'undefined' && createPortal(
+				<>
+					<Dialog open={openInfoModal === 'keyMappings'} onOpenChange={(open) => !open && setOpenInfoModal(null)}>
+						<DialogContent>
+							<DialogHeader>
+								<DialogTitle>About Key Mappings</DialogTitle>
+								<DialogDescription>
+									Information about the Key Mappings section
+								</DialogDescription>
+							</DialogHeader>
+							<div className="py-4 space-y-4">
+								<p className="text-sm text-muted-foreground">
+									The Key Mappings section defines the primary and secondary keys that uniquely identify records in your dimensional model. These keys are essential for establishing relationships between tables and ensuring data integrity.
+								</p>
+								<div className="space-y-2">
+									<p className="text-sm font-medium">Primary Node:</p>
+									<p className="text-sm text-muted-foreground">
+										The primary node represents the main entity or dimension in your model. It typically maps to the primary key columns from your source table that uniquely identify each record.
+									</p>
+									<p className="text-sm font-medium">Secondary Nodes:</p>
+									<p className="text-sm text-muted-foreground">
+										Secondary nodes represent related entities or dimensions that connect to the primary node. These are used to create relationships and hierarchies in your dimensional model. You can select multiple columns for composite keys.
+									</p>
+								</div>
+							</div>
+							<DialogFooter>
+								<Button onClick={() => setOpenInfoModal(null)}>Got it</Button>
+							</DialogFooter>
+						</DialogContent>
+					</Dialog>
 
-			{/* Table Meta Info Dialog */}
-			<Dialog open={openInfoModal === 'tableMeta'} onOpenChange={(open) => !open && setOpenInfoModal(null)}>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>About Table Meta</DialogTitle>
-						<DialogDescription>
-							Information about the Table Meta section
-						</DialogDescription>
-					</DialogHeader>
-					<div className="py-4 space-y-4">
-						<p className="text-sm text-muted-foreground">
-							The Table Meta section contains metadata fields that are essential for table management and data tracking in your dimensional model.
-						</p>
-						<div className="space-y-2">
-							<p className="text-sm font-medium">Primary Key:</p>
-							<p className="text-sm text-muted-foreground">
-								The table primary key uniquely identifies each row in the dimensional table. This is typically a composite key made up of one or more columns from your source table. You can select multiple columns to create a composite primary key.
-							</p>
-							<p className="text-sm font-medium">Ingest Time:</p>
-							<p className="text-sm text-muted-foreground">
-								The ingest time field tracks when data was loaded into the table. This is used for data lineage, auditing, and incremental processing. It should map to a timestamp column in your source table.
-							</p>
-						</div>
-					</div>
-					<DialogFooter>
-						<Button onClick={() => setOpenInfoModal(null)}>Got it</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
+					<Dialog open={openInfoModal === 'tableMeta'} onOpenChange={(open) => !open && setOpenInfoModal(null)}>
+						<DialogContent>
+							<DialogHeader>
+								<DialogTitle>About Table Meta</DialogTitle>
+								<DialogDescription>
+									Information about the Table Meta section
+								</DialogDescription>
+							</DialogHeader>
+							<div className="py-4 space-y-4">
+								<p className="text-sm text-muted-foreground">
+									The Table Meta section contains metadata fields that are essential for table management and data tracking in your dimensional model.
+								</p>
+								<div className="space-y-2">
+									<p className="text-sm font-medium">Primary Key:</p>
+									<p className="text-sm text-muted-foreground">
+										The table primary key uniquely identifies each row in the dimensional table. This is typically a composite key made up of one or more columns from your source table. You can select multiple columns to create a composite primary key.
+									</p>
+									<p className="text-sm font-medium">Ingest Time:</p>
+									<p className="text-sm text-muted-foreground">
+										The ingest time field tracks when data was loaded into the table. This is used for data lineage, auditing, and incremental processing. It should map to a timestamp column in your source table.
+									</p>
+								</div>
+							</div>
+							<DialogFooter>
+								<Button onClick={() => setOpenInfoModal(null)}>Got it</Button>
+							</DialogFooter>
+						</DialogContent>
+					</Dialog>
 
-			{/* Column Mapping Info Dialog */}
-			<Dialog open={openInfoModal === 'columnMapping'} onOpenChange={(open) => !open && setOpenInfoModal(null)}>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>About Column Mapping</DialogTitle>
-						<DialogDescription>
-							Information about the Column Mapping section
-						</DialogDescription>
-					</DialogHeader>
-					<div className="py-4 space-y-4">
-						<p className="text-sm text-muted-foreground">
-							The Column Mapping section contains all the attribute columns that will be included in your dimensional model. These are the descriptive fields that provide context and detail about each record.
-						</p>
-						<div className="space-y-2">
-							<p className="text-sm font-medium">Attributes:</p>
-							<p className="text-sm text-muted-foreground">
-								Each column in this section represents an attribute or property of your dimension. You can map source table columns to these model fields, and optionally customize the field name (alias) that will appear in the deployed model.
-							</p>
-							<p className="text-sm font-medium">Adding Custom Columns:</p>
-							<p className="text-sm text-muted-foreground">
-								You can add new columns to your model by clicking the "Add" button. This allows you to include additional attributes from your source table that aren't predefined in the blueprint.
-							</p>
-							<p className="text-sm font-medium">Data Types:</p>
-							<p className="text-sm text-muted-foreground">
-								The system will validate that the data types match between your source columns and the expected model field types. Type mismatches will be indicated, and data will be automatically converted when possible.
-							</p>
-						</div>
-					</div>
-					<DialogFooter>
-						<Button onClick={() => setOpenInfoModal(null)}>Got it</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
+					<Dialog open={openInfoModal === 'columnMapping'} onOpenChange={(open) => !open && setOpenInfoModal(null)}>
+						<DialogContent>
+							<DialogHeader>
+								<DialogTitle>About Column Mapping</DialogTitle>
+								<DialogDescription>
+									Information about the Column Mapping section
+								</DialogDescription>
+							</DialogHeader>
+							<div className="py-4 space-y-4">
+								<p className="text-sm text-muted-foreground">
+									The Column Mapping section contains all the attribute columns that will be included in your dimensional model. These are the descriptive fields that provide context and detail about each record.
+								</p>
+								<div className="space-y-2">
+									<p className="text-sm font-medium">Attributes:</p>
+									<p className="text-sm text-muted-foreground">
+										Each column in this section represents an attribute or property of your dimension. You can map source table columns to these model fields, and optionally customize the field name (alias) that will appear in the deployed model.
+									</p>
+									<p className="text-sm font-medium">Adding Custom Columns:</p>
+									<p className="text-sm text-muted-foreground">
+										You can add new columns to your model by clicking the "Add" button. This allows you to include additional attributes from your source table that aren't predefined in the blueprint.
+									</p>
+									<p className="text-sm font-medium">Data Types:</p>
+									<p className="text-sm text-muted-foreground">
+										The system will validate that the data types match between your source columns and the expected model field types. Type mismatches will be indicated, and data will be automatically converted when possible.
+									</p>
+								</div>
+							</div>
+							<DialogFooter>
+								<Button onClick={() => setOpenInfoModal(null)}>Got it</Button>
+							</DialogFooter>
+						</DialogContent>
+					</Dialog>
 
-			{/* Delete Condition Info Dialog */}
-			<Dialog open={openInfoModal === 'deleteCondition'} onOpenChange={(open) => !open && setOpenInfoModal(null)}>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>About DELETE_CONDITION</DialogTitle>
-						<DialogDescription>
-							Information about the Delete Condition field
-						</DialogDescription>
-					</DialogHeader>
-					<div className="py-4 space-y-4">
-						<p className="text-sm text-muted-foreground">
-							The DELETE_CONDITION is a required SQL expression that determines how rows are marked as deleted in your source table. This condition is used to filter out deleted records during data processing.
-						</p>
-						<div className="space-y-2">
-							<p className="text-sm font-medium">Required Field:</p>
-							<p className="text-sm text-muted-foreground">
-								This field must be filled in before you can proceed to the next step. The blueprint will not be marked as complete until a delete condition is provided.
-							</p>
-							<p className="text-sm font-medium">SQL Expression Examples:</p>
-							<p className="text-sm text-muted-foreground font-mono bg-muted p-2 rounded">
-								DELETED_FLAG = 'Y'<br />
-								IS_DELETED = 1<br />
-								STATUS = 'DELETED'<br />
-								DELETED_DATE IS NOT NULL
-							</p>
-							<p className="text-sm font-medium">Usage:</p>
-							<p className="text-sm text-muted-foreground">
-								The system will use this condition to identify and exclude deleted rows when processing data from your source table. Only rows that do not match this condition will be included in the dimensional model.
-							</p>
-						</div>
-					</div>
-					<DialogFooter>
-						<Button onClick={() => setOpenInfoModal(null)}>Got it</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
+					<Dialog open={openInfoModal === 'deleteCondition'} onOpenChange={(open) => !open && setOpenInfoModal(null)}>
+						<DialogContent>
+							<DialogHeader>
+								<DialogTitle>About DELETE_CONDITION</DialogTitle>
+								<DialogDescription>
+									Information about the Delete Condition field
+								</DialogDescription>
+							</DialogHeader>
+							<div className="py-4 space-y-4">
+								<p className="text-sm text-muted-foreground">
+									The DELETE_CONDITION is a required SQL expression that determines how rows are marked as deleted in your source table. This condition is used to filter out deleted records during data processing.
+								</p>
+								<div className="space-y-2">
+									<p className="text-sm font-medium">Required Field:</p>
+									<p className="text-sm text-muted-foreground">
+										This field must be filled in before you can proceed to the next step. The blueprint will not be marked as complete until a delete condition is provided.
+									</p>
+									<p className="text-sm font-medium">SQL Expression Examples:</p>
+									<p className="text-sm text-muted-foreground font-mono bg-muted p-2 rounded">
+										DELETED_FLAG = 'Y'<br />
+										IS_DELETED = 1<br />
+										STATUS = 'DELETED'<br />
+										DELETED_DATE IS NOT NULL
+									</p>
+									<p className="text-sm font-medium">Usage:</p>
+									<p className="text-sm text-muted-foreground">
+										The system will use this condition to identify and exclude deleted rows when processing data from your source table. Only rows that do not match this condition will be included in the dimensional model.
+									</p>
+								</div>
+							</div>
+							<DialogFooter>
+								<Button onClick={() => setOpenInfoModal(null)}>Got it</Button>
+							</DialogFooter>
+						</DialogContent>
+					</Dialog>
 
-			{/* Where Clause Info Dialog */}
-			<Dialog open={openInfoModal === 'whereClause'} onOpenChange={(open) => !open && setOpenInfoModal(null)}>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>About WHERE Clause</DialogTitle>
-						<DialogDescription>
-							Information about the WHERE Clause field
-						</DialogDescription>
-					</DialogHeader>
-					<div className="py-4 space-y-4">
-						<p className="text-sm text-muted-foreground">
-							The WHERE Clause is an optional SQL expression that allows you to filter rows from your source table before they are processed into the dimensional model.
-						</p>
-						<div className="space-y-2">
-							<p className="text-sm font-medium">Optional Field:</p>
-							<p className="text-sm text-muted-foreground">
-								This field is optional and can be left empty if you want to include all rows from the source table (excluding those marked as deleted by the DELETE_CONDITION).
-							</p>
-							<p className="text-sm font-medium">SQL Expression Examples:</p>
-							<p className="text-sm text-muted-foreground font-mono bg-muted p-2 rounded">
-								STATUS = 'ACTIVE'<br />
-								CREATED_DATE &gt;= '2024-01-01'<br />
-								REGION IN ('US', 'EU')<br />
-								IS_PUBLISHED = 1 AND IS_ARCHIVED = 0
-							</p>
-							<p className="text-sm font-medium">Usage:</p>
-							<p className="text-sm text-muted-foreground">
-								The WHERE clause is applied in addition to the DELETE_CONDITION. Rows must satisfy both conditions (not match DELETE_CONDITION and match WHERE clause if provided) to be included in the dimensional model.
-							</p>
-						</div>
-					</div>
-					<DialogFooter>
-						<Button onClick={() => setOpenInfoModal(null)}>Got it</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
-
-		</div>
+					<Dialog open={openInfoModal === 'whereClause'} onOpenChange={(open) => !open && setOpenInfoModal(null)}>
+						<DialogContent>
+							<DialogHeader>
+								<DialogTitle>About WHERE Clause</DialogTitle>
+								<DialogDescription>
+									Information about the WHERE Clause field
+								</DialogDescription>
+							</DialogHeader>
+							<div className="py-4 space-y-4">
+								<p className="text-sm text-muted-foreground">
+									The WHERE Clause is an optional SQL expression that allows you to filter rows from your source table before they are processed into the dimensional model.
+								</p>
+								<div className="space-y-2">
+									<p className="text-sm font-medium">Optional Field:</p>
+									<p className="text-sm text-muted-foreground">
+										This field is optional and can be left empty if you want to include all rows from the source table (excluding those marked as deleted by the DELETE_CONDITION).
+									</p>
+									<p className="text-sm font-medium">SQL Expression Examples:</p>
+									<p className="text-sm text-muted-foreground font-mono bg-muted p-2 rounded">
+										STATUS = 'ACTIVE'<br />
+										CREATED_DATE &gt;= '2024-01-01'<br />
+										REGION IN ('US', 'EU')<br />
+										IS_PUBLISHED = 1 AND IS_ARCHIVED = 0
+									</p>
+									<p className="text-sm font-medium">Usage:</p>
+									<p className="text-sm text-muted-foreground">
+										The WHERE clause is applied in addition to the DELETE_CONDITION. Rows must satisfy both conditions (not match DELETE_CONDITION and match WHERE clause if provided) to be included in the dimensional model.
+									</p>
+								</div>
+							</div>
+							<DialogFooter>
+								<Button onClick={() => setOpenInfoModal(null)}>Got it</Button>
+							</DialogFooter>
+						</DialogContent>
+					</Dialog>
+				</>,
+				document.body
+			)}
+			</div>
+		</>
 	)
 }
 

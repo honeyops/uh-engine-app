@@ -1,0 +1,2 @@
+When a table is selected without a previous mapping it still asks to clear
+__NONE__ shows in te field combos

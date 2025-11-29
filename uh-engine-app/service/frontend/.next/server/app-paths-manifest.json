@@ -1,7 +1,4 @@
 {
   "/page": "app/page.js",
-  "/timeseries-database/page": "app/timeseries-database/page.js",
-  "/icon.svg/route": "app/icon.svg/route.js",
-  "/openflow/page": "app/openflow/page.js",
   "/model-catalog/page": "app/model-catalog/page.js"
 }

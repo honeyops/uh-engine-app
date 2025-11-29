@@ -8,6 +8,30 @@ cd c:/Users/carla/unified-honey/uh-engine-app/uh-engine-app && snow spcs image-r
 DEPLOY
 cd "c:\Users\carla\unified-honey\uh-engine-app\uh-engine-app" && snow app teardown --cascade --force && snow app run
 
+
+
+cd c:/Users/carla/unified-honey/uh-engine-app/uh-engine-app && snow spcs image-registry login && docker image push goistmo-uswest.registry.snowflakecomputing.com/uh_engine_app_database/public/images/uh_engine_app_service && snow app teardown --cascade --force && snow app run
+
+
+
+
+cd "c:\Users\carla\unified-honey\uh-engine-app\uh-engine-app" && docker buildx build --no-cache --platform=linux/amd64 -t goistmo-uswest.registry.snowflakecomputing.com/uh_engine_app_database/public/images/uh_engine_app_service ./service && 
+cd c:/Users/carla/unified-honey/uh-engine-app/uh-engine-app && snow spcs image-registry login && docker image push goistmo-uswest.registry.snowflakecomputing.com/uh_engine_app_database/public/images/uh_engine_app_service && 
+cd "c:\Users\carla\unified-honey\uh-engine-app\uh-engine-app" && snow app teardown --cascade --force && 
+snow app run && 
+snow sql -q "GRANT USAGE, OPERATE ON WAREHOUSE NATIVE_APP_WH TO APPLICATION UNIFIED_HONEY_APPLICATION" && 
+snow sql -q "GRANT USAGE ON DATABASE UNIFIED_HONEY TO APPLICATION UNIFIED_HONEY_APPLICATION"
+
+
+
+GRANT USAGE, OPERATE ON WAREHOUSE NATIVE_APP_WH TO APPLICATION UNIFIED_HONEY_APPLICATION;
+GRANT USAGE ON DATABASE UNIFIED_HONEY TO APPLICATION UNIFIED_HONEY_APPLICATION;
+   -- etc.
+
+
+
+
+
 BIND WAREHOUSE
 cd "c:\Users\carla\unified-honey\uh-engine-app\uh-engine-app" && snow sql -q "GRANT USAGE, OPERATE ON WAREHOUSE NATIVE_APP_WH TO APPLICATION UNIFIED_HONEY_APPLICATION"
 cd "c:\Users\carla\unified-honey\uh-engine-app\uh-engine-app" && snow sql -q "SELECT SYSTEM"'$'"REFERENCE('WAREHOUSE', 'NATIVE_APP_WH', 'PERSISTENT')"

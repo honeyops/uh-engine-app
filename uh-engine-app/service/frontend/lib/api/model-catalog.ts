@@ -247,30 +247,115 @@ export const listDatabases = async (): Promise<string[]> => {
 			if (item && typeof item.name === 'string') return item.name;
 			return null;
 		})
-		.filter((name): name is string => Boolean(name))
-		.map((name) => name.toUpperCase());
+		.filter((name: unknown): name is string => typeof name === 'string' && name.length > 0)
+		.map((name: string) => name.toUpperCase());
 };
 
 // Get databases that the app role can access (has SELECT permission)
 // Uses the same endpoint as listDatabases - returns list of database names
 export const getAccessibleDatabases = async (): Promise<{ databases: string[] }> => {
 	const url = `${API_BASE}/sources/metadata/databases`;
-	const response = await axios.get<SourceMetadataResponse>(url);
-	// Transform the response to match expected format
-	const databases = response.data.data.map((item: SourceMetadataItem) => item.name);
-	return { databases };
+	const response = await axios.get(url);
+	const payload = response.data;
+
+	const rawList = Array.isArray(payload)
+		? payload
+		: Array.isArray(payload?.data)
+			? payload.data
+			: Array.isArray(payload?.databases)
+				? payload.databases
+				: [];
+
+	const databases = rawList
+		.map((item: any) => {
+			if (typeof item === 'string') return item;
+			if (item && typeof item.name === 'string') return item.name;
+			return null;
+		})
+		.filter((name: unknown): name is string => typeof name === 'string' && name.length > 0);
+
+	return { databases: databases.map((name: string) => name.toUpperCase()) };
 };
 
 export const listSchemas = async (database: string): Promise<SourceMetadataResponse> => {
 	const url = `${API_BASE}/sources/metadata/schemas`;
-	const response = await axios.get<SourceMetadataResponse>(url, { params: { db: database } });
-	return response.data;
+	const response = await axios.get(url, { params: { db: database } });
+	const payload = response.data;
+
+	const rawList = Array.isArray(payload)
+		? payload
+		: Array.isArray(payload?.data)
+			? payload.data
+			: Array.isArray(payload?.schemas)
+				? payload.schemas
+				: [];
+
+	const items = rawList
+		.map((item: any) => {
+			if (typeof item === 'string') {
+				return {
+					name: item.toUpperCase(),
+					created_on: null,
+					comment: null,
+				} as SourceMetadataItem;
+			}
+			if (item && typeof item.name === 'string') {
+				return {
+					...item,
+					name: item.name.toUpperCase(),
+				} as SourceMetadataItem;
+			}
+			return null;
+		})
+		.filter((x: unknown): x is SourceMetadataItem => Boolean(x));
+
+	return {
+		message: `Schemas in ${database}`,
+		data: items,
+	};
 };
 
 export const listTables = async (database: string, schema: string): Promise<SourceMetadataResponse> => {
 	const url = `${API_BASE}/sources/metadata/tables`;
-	const response = await axios.get<SourceMetadataResponse>(url, { params: { db: database, schema } });
-	return response.data;
+	const response = await axios.get(url, { params: { db: database, schema } });
+	const payload = response.data;
+
+	const rawList = Array.isArray(payload)
+		? payload
+		: Array.isArray(payload?.data)
+			? payload.data
+			: Array.isArray(payload?.tables)
+				? payload.tables
+				: [];
+
+	const items = rawList
+		.map((item: any) => {
+			if (typeof item === 'string') {
+				return {
+					name: item.toUpperCase(),
+					created_on: null,
+					comment: null,
+				} as SourceMetadataItem;
+			}
+
+			if (item) {
+				const rawName = item.name ?? item.TABLE_NAME;
+				if (typeof rawName === 'string' && rawName.trim().length > 0) {
+					return {
+						...item,
+						name: rawName.toUpperCase(),
+					} as SourceMetadataItem;
+				}
+			}
+
+			return null;
+		})
+		.filter((x: unknown): x is SourceMetadataItem => Boolean(x));
+
+	return {
+		message: `Tables in ${database}.${schema}`,
+		data: items,
+	};
 };
 
 
@@ -308,9 +393,10 @@ export const listTablesCached = async (database: string, schema: string): Promis
 	// Fetch and cache
 	const promise = listTables(database, schema)
 		.then((res) => {
-			const tables = (Array.isArray(res?.tables) ? res.tables : Array.isArray(res?.data) ? res.data : [])
-				.map((t: any) => String(t.name || t.TABLE_NAME).toUpperCase())
-				.filter(Boolean);
+			const rawData = Array.isArray(res?.data) ? res.data : [];
+			const tables = rawData
+				.map((t: any) => String(t.name || t.TABLE_NAME || '').toUpperCase())
+				.filter((val: string) => val.length > 0);
 			__tablesCache.set(cacheKey, tables);
 			return tables;
 		})
@@ -342,7 +428,7 @@ export const listColumnsCached = async (database: string, schema: string, table:
 	// Fetch and cache
 	const promise = listColumns(database, schema, table)
 		.then((res) => {
-			const columns = Array.isArray(res?.columns) ? res.columns : Array.isArray(res?.data) ? res.data : [];
+			const columns = Array.isArray(res?.data) ? res.data : [];
 			__columnsCache.set(cacheKey, columns);
 			return columns;
 		})
@@ -361,8 +447,6 @@ export const resetTablesCacheForSchema = (database: string, schema: string) => {
 };
 
 export const resetAllCaches = () => {
-	__dbSchemasCache = null;
-	__dbSchemasInflight = null;
 	__tablesCache.clear();
 	__tablesInflight.clear();
 	__columnsCache.clear();

@@ -6,6 +6,5 @@ create application role if not exists app_public;
 execute immediate from './references.sql';
 execute immediate from './services.sql';
 execute immediate from './configuration.sql';
--- Database creation is optional - requires CREATE DATABASE privilege
--- If privilege is not granted, customer can create database manually or use setup.create_database()
--- execute immediate from './database.sql';
+-- Note: UNIFIED_HONEY database and schemas are created by setup.create_service() grant callback
+-- which runs automatically when the app is installed and privileges are granted

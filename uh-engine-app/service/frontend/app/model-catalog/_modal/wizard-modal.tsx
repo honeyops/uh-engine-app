@@ -152,20 +152,21 @@ export default function WizardModal({ onDeploymentSuccess }: WizardModalProps) {
 	}, [])
 
 	return (
-		<Dialog 
-			open={wizard.isOpen && !wizard.isMinimized} 
-			onOpenChange={(o) => { 
-				if (!o) { 
-					// If deploying, minimize instead of closing
-					if (wizard.isDeploying) {
-						wizard.setIsMinimized(true)
-					} else {
-						wizard.close()
+		<>
+			<Dialog 
+				open={wizard.isOpen && !wizard.isMinimized} 
+				onOpenChange={(o) => { 
+					if (!o) { 
+						// If deploying, minimize instead of closing
+						if (wizard.isDeploying) {
+							wizard.setIsMinimized(true)
+						} else {
+							wizard.close()
+						}
 					}
-				}
-			}}
-		>
-                        <DialogContent className="max-w-[80vw] w-[80vw] h-[85vh] p-0 flex flex-col overflow-hidden">
+				}}
+			>
+				<DialogContent className="max-w-[80vw] w-[80vw] h-[85vh] p-0 flex flex-col overflow-hidden">
 				{/* Loading Overlay */}
 				{wizard.isLoadingModalData && (
 					<div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
@@ -353,9 +354,10 @@ export default function WizardModal({ onDeploymentSuccess }: WizardModalProps) {
 						</>
 					)}
 				</div>
-			</DialogContent>
+				</DialogContent>
+			</Dialog>
 
-			{/* Unsaved Changes Warning for Next Step */}
+			{/* Unsaved Changes Warning for Next Step - Separate Dialog to avoid nested portals */}
 			<Dialog open={showUnsavedWarningNext} onOpenChange={setShowUnsavedWarningNext}>
 				<DialogContent>
 					<DialogHeader>
@@ -382,7 +384,7 @@ export default function WizardModal({ onDeploymentSuccess }: WizardModalProps) {
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
-		</Dialog>
+		</>
 	)
 }
 

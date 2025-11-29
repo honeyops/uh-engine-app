@@ -1,4 +1,4 @@
-// File: C:\Users\carla\unified-honey\uh-engine\frontend\app\model-catalog\layout.tsx
+// File: C:\Users\carla\unified-honey\uh-engine-app\uh-engine-app\service\frontend\app\model-catalog\layout.tsx
 import * as entry from '../../../../app/model-catalog/layout.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
