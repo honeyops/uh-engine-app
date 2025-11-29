@@ -26,21 +26,24 @@ logger = logging.getLogger(__name__)
 def _build_cdc_state_table_name() -> str:
     """
     Build fully-qualified table name for CDC state metadata using configuration.
-    Falls back to legacy default if configuration is incomplete.
+    Raises error if configuration is incomplete (no fallback).
     """
     database = snowflake_data_table.get("database_name")
     schema = snowflake_data_table.get("schema_name")
     table = snowflake_data_table.get("table_name")
 
     if not database or not schema or not table:
-        logger.warning(
-            "snowflake_data_table configuration incomplete. Falling back to default CDC table name."
+        raise ValueError(
+            "snowflake_data_table configuration incomplete. Cannot determine CDC table name."
         )
-        return "LANDING_ZONE.CDC_METADATA.CDC_STATE_METADATA"
 
     return f"{database}.{schema}.{table}"
 
-CDC_STATE_TABLE = _build_cdc_state_table_name()
+try:
+    CDC_STATE_TABLE = _build_cdc_state_table_name()
+except ValueError as e:
+    logger.error(str(e))
+    CDC_STATE_TABLE = None
 
 # Webhook configuration
 OPENFLOW_WEBHOOK_URL = os.getenv("OPENFLOW_WEBHOOK_URL", "")
@@ -102,11 +105,29 @@ def _get_columns_from_cursor(cursor) -> List[str]:
     """Extract column names from cursor description."""
     return [desc[0] for desc in cursor.description] if cursor.description else []
 
+def _is_table_not_found_error(error: Exception) -> bool:
+    """
+    Check if an error indicates the table doesn't exist.
+    Snowflake errors typically contain phrases like 'does not exist' or 'Object does not exist'.
+    """
+    error_str = str(error).lower()
+    return (
+        "does not exist" in error_str
+        or "object does not exist" in error_str
+        or "table" in error_str and "not found" in error_str
+    )
+
 @router.get("/openflow/snapshot-state", response_model=SnapshotStateListResponse)
 async def list_snapshot_states():
     """
-    List all snapshot states from LANDING_ZONE.CDC_METADATA.CDC_STATE_METADATA.
+    List all snapshot states from the configured CDC_STATE_METADATA table.
     """
+    if not CDC_STATE_TABLE:
+        raise HTTPException(
+            status_code=503,
+            detail="Can't find OpenFlow configuration table"
+        )
+    
     try:
         with SnowflakeClient() as client:
             query = f"""
@@ -173,6 +194,11 @@ async def list_snapshot_states():
     except HTTPException:
         raise
     except Exception as e:
+        if _is_table_not_found_error(e):
+            raise HTTPException(
+                status_code=503,
+                detail="Can't find OpenFlow configuration table"
+            )
         raise HTTPException(status_code=500, detail=f"Failed to retrieve snapshot states: {str(e)}")
 
 @router.get("/openflow/snapshot-state/{database_name}/{schema_name}/{table_name}", response_model=SnapshotStateResponse)
@@ -180,6 +206,12 @@ async def get_snapshot_state(database_name: str, schema_name: str, table_name: s
     """
     Get a single snapshot state by composite primary key.
     """
+    if not CDC_STATE_TABLE:
+        raise HTTPException(
+            status_code=503,
+            detail="Can't find OpenFlow configuration table"
+        )
+    
     try:
         # URL decode the parameters
         database_name = unquote(database_name)
@@ -249,6 +281,11 @@ async def get_snapshot_state(database_name: str, schema_name: str, table_name: s
     except HTTPException:
         raise
     except Exception as e:
+        if _is_table_not_found_error(e):
+            raise HTTPException(
+                status_code=503,
+                detail="Can't find OpenFlow configuration table"
+            )
         raise HTTPException(status_code=500, detail=f"Failed to retrieve snapshot state: {str(e)}")
 
 @router.post("/openflow/snapshot-state", response_model=SnapshotStateCRUDResponse)
@@ -256,6 +293,12 @@ async def create_snapshot_state(request: SnapshotStateCreateRequest):
     """
     Create a new snapshot state record.
     """
+    if not CDC_STATE_TABLE:
+        raise HTTPException(
+            status_code=503,
+            detail="Can't find OpenFlow configuration table"
+        )
+    
     try:
         with SnowflakeClient() as client:
             # Check if record already exists
@@ -346,6 +389,11 @@ async def create_snapshot_state(request: SnapshotStateCreateRequest):
     except HTTPException:
         raise
     except Exception as e:
+        if _is_table_not_found_error(e):
+            raise HTTPException(
+                status_code=503,
+                detail="Can't find OpenFlow configuration table"
+            )
         raise HTTPException(status_code=500, detail=f"Failed to create snapshot state: {str(e)}")
 
 @router.put("/openflow/snapshot-state/{database_name}/{schema_name}/{table_name}", response_model=SnapshotStateCRUDResponse)
@@ -358,6 +406,12 @@ async def update_snapshot_state(
     """
     Update an existing snapshot state record.
     """
+    if not CDC_STATE_TABLE:
+        raise HTTPException(
+            status_code=503,
+            detail="Can't find OpenFlow configuration table"
+        )
+    
     try:
         # URL decode the parameters
         database_name = unquote(database_name)
@@ -495,6 +549,11 @@ async def update_snapshot_state(
     except HTTPException:
         raise
     except Exception as e:
+        if _is_table_not_found_error(e):
+            raise HTTPException(
+                status_code=503,
+                detail="Can't find OpenFlow configuration table"
+            )
         raise HTTPException(status_code=500, detail=f"Failed to update snapshot state: {str(e)}")
 
 @router.delete("/openflow/snapshot-state/{database_name}/{schema_name}/{table_name}", response_model=SnapshotStateCRUDResponse)
@@ -502,6 +561,12 @@ async def delete_snapshot_state(database_name: str, schema_name: str, table_name
     """
     Delete a snapshot state record.
     """
+    if not CDC_STATE_TABLE:
+        raise HTTPException(
+            status_code=503,
+            detail="Can't find OpenFlow configuration table"
+        )
+    
     try:
         # URL decode the parameters
         database_name = unquote(database_name)
@@ -556,5 +621,10 @@ async def delete_snapshot_state(database_name: str, schema_name: str, table_name
     except HTTPException:
         raise
     except Exception as e:
+        if _is_table_not_found_error(e):
+            raise HTTPException(
+                status_code=503,
+                detail="Can't find OpenFlow configuration table"
+            )
         raise HTTPException(status_code=500, detail=f"Failed to delete snapshot state: {str(e)}")
 

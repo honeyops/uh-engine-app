@@ -22,6 +22,31 @@ def _get_default_private_key_path():
     return str(default_key_path)
 
 
+def _get_warehouse_from_references(conn: snowflake.connector.SnowflakeConnection) -> Optional[str]:
+    """
+    Get the warehouse name from bound references in SPCS environment.
+    Returns warehouse name or None if not found.
+    """
+    try:
+        with conn.cursor() as cur:
+            # Query SYSTEM$GET_ALL_REFERENCES to find bound warehouse
+            cur.execute("SELECT SYSTEM$GET_ALL_REFERENCES()")
+            refs = cur.fetchall()
+
+            for ref in refs:
+                # ref format: [reference_name, object_type, object_name, ...]
+                if len(ref) >= 3 and ref[1] == 'WAREHOUSE':
+                    warehouse_name = ref[2]
+                    logger.info(f"Found warehouse from references: {warehouse_name}")
+                    return warehouse_name
+
+        logger.warning("No warehouse reference found in SYSTEM$GET_ALL_REFERENCES")
+        return None
+    except Exception as e:
+        logger.error(f"Failed to get warehouse from references: {e}")
+        return None
+
+
 def _get_pooled_connection() -> snowflake.connector.SnowflakeConnection:
     """Get a connection from the pool, creating one if needed. Thread-safe."""
     global _connection_pool, _pool_initialized
@@ -86,14 +111,21 @@ def _get_pooled_connection() -> snowflake.connector.SnowflakeConnection:
         _connection_pool = snowflake.connector.connect(**creds)
         _pool_initialized = True
 
-        # Explicitly activate warehouse for SPCS OAuth connections
-        if os.path.isfile(token_path) and warehouse:
-            try:
-                with _connection_pool.cursor() as cur:
-                    cur.execute(f"USE WAREHOUSE {warehouse}")
-                logger.info(f"Activated warehouse: {warehouse}")
-            except Exception as e:
-                logger.warning(f"Failed to activate warehouse {warehouse}: {e}")
+        # For SPCS OAuth connections, get warehouse from references and activate it
+        if os.path.isfile(token_path):
+            # Try to get warehouse from references if not in env
+            if not warehouse:
+                warehouse = _get_warehouse_from_references(_connection_pool)
+
+            if warehouse:
+                try:
+                    with _connection_pool.cursor() as cur:
+                        cur.execute(f"USE WAREHOUSE {warehouse}")
+                    logger.info(f"Activated warehouse: {warehouse}")
+                except Exception as e:
+                    logger.error(f"Failed to activate warehouse {warehouse}: {e}")
+            else:
+                logger.error("No warehouse found - cannot activate warehouse")
 
         logger.info("Pooled connection established successfully")
         return _connection_pool
@@ -172,14 +204,21 @@ class SnowflakeClient:
             self._conn = snowflake.connector.connect(**creds)
             self._owns_connection = True
 
-            # Explicitly activate warehouse for SPCS OAuth connections
-            if os.path.isfile(self._token_path) and warehouse:
-                try:
-                    with self._conn.cursor() as cur:
-                        cur.execute(f"USE WAREHOUSE {warehouse}")
-                    logger.info(f"Activated warehouse: {warehouse}")
-                except Exception as e:
-                    logger.warning(f"Failed to activate warehouse {warehouse}: {e}")
+            # For SPCS OAuth connections, get warehouse from references and activate it
+            if os.path.isfile(self._token_path):
+                # Try to get warehouse from references if not in env
+                if not warehouse:
+                    warehouse = _get_warehouse_from_references(self._conn)
+
+                if warehouse:
+                    try:
+                        with self._conn.cursor() as cur:
+                            cur.execute(f"USE WAREHOUSE {warehouse}")
+                        logger.info(f"Activated warehouse: {warehouse}")
+                    except Exception as e:
+                        logger.error(f"Failed to activate warehouse {warehouse}: {e}")
+                else:
+                    logger.error("No warehouse found - cannot activate warehouse")
 
     def close(self) -> None:
         if self._conn is not None:

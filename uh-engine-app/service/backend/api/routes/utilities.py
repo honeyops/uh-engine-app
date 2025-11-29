@@ -1944,7 +1944,7 @@ async def get_snowflake_account_url():
     
     Returns:
         {
-            "account_url": str  # e.g., "https://app.snowflake.com/goistmo/uswest/#/data/databases/LANDING_ZONE/schemas/CDC_METADATA/table/CDC_SNAPSHOT_ACTIVITY/data-preview"
+            "account_url": str  # e.g., "https://app.snowflake.com/goistmo/uswest/#/data/databases/UNIFIED_HONEY_APPLICATION/schemas/CORE/table/CDC_STATE_METADATA/data-preview"
         }
     """
     try:

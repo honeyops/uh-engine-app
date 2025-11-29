@@ -11,7 +11,7 @@ from fastapi.exceptions import RequestValidationError
 from pathlib import Path
 import traceback
 import logging
-from api.routes import utilities, blueprints, dimensional_models, openflow, governance, dashboard, references
+from api.routes import utilities, blueprints, dimensional_models, openflow, governance, dashboard
 
 # Configure logging - only show errors
 logging.basicConfig(
@@ -97,7 +97,6 @@ app.include_router(dimensional_models.router, prefix="/api/v1", tags=["dimension
 app.include_router(openflow.router, prefix="/api/v1", tags=["openflow"])
 app.include_router(governance.router, prefix="/api/v1", tags=["governance"])
 app.include_router(dashboard.router, prefix="/api/v1", tags=["dashboard"])
-app.include_router(references.router)
 
 @app.get("/docs", include_in_schema=False)
 async def custom_swagger_ui_html():

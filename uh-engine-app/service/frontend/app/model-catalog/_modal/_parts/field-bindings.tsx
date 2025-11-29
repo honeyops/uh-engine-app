@@ -380,26 +380,26 @@ export default function FieldBindings() {
 			// Blueprint switched - always load values from the new blueprint (don't mark as dirty)
 			wizard.setBindingMappings((prev) => ({
 				...prev,
-				delete_condition: blueprintBindingsData.delete_condition || '',
-				where_clause: blueprintBindingsData.where_clause || '',
+				delete_condition: String(blueprintBindingsData.delete_condition || ''),
+				where_clause: String(blueprintBindingsData.where_clause || ''),
 			}), false)
 			prevBlueprintKeyRef.current = k
 		} else {
 			// Same blueprint - only set if not already in bindingMappings (to avoid overwriting user changes)
-			const currentDeleteCondition = wizard.bindingMappings['delete_condition']
-			const currentWhereClause = wizard.bindingMappings['where_clause']
+			const currentDeleteCondition = String(wizard.bindingMappings['delete_condition'] || '')
+			const currentWhereClause = String(wizard.bindingMappings['where_clause'] || '')
 
 			if (!currentDeleteCondition && blueprintBindingsData.delete_condition) {
 				wizard.setBindingMappings((prev) => ({
 					...prev,
-					delete_condition: blueprintBindingsData.delete_condition,
+					delete_condition: String(blueprintBindingsData.delete_condition || ''),
 				}), false)
 			}
 
 			if (!currentWhereClause && blueprintBindingsData.where_clause) {
 				wizard.setBindingMappings((prev) => ({
 					...prev,
-					where_clause: blueprintBindingsData.where_clause,
+					where_clause: String(blueprintBindingsData.where_clause || ''),
 				}), false)
 			}
 		}
@@ -788,10 +788,10 @@ export default function FieldBindings() {
 			}
 
 			// Check if delete_condition or where_clause changed
-			const deleteCondition = wizard.bindingMappings['delete_condition'] || ''
-			const whereClause = wizard.bindingMappings['where_clause'] || ''
-			const deleteConditionChanged = deleteCondition !== (blueprintBindingsData.delete_condition || '')
-			const whereClauseChanged = whereClause !== (blueprintBindingsData.where_clause || '')
+			const deleteCondition = String(wizard.bindingMappings['delete_condition'] || '')
+			const whereClause = String(wizard.bindingMappings['where_clause'] || '')
+			const deleteConditionChanged = deleteCondition !== String(blueprintBindingsData.delete_condition || '')
+			const whereClauseChanged = whereClause !== String(blueprintBindingsData.where_clause || '')
 
 			if (deleteConditionChanged) {
 				payload.delete_condition = deleteCondition
@@ -921,7 +921,7 @@ export default function FieldBindings() {
 				return hasValue
 			})
 
-			const deleteConditionProvided = deleteCondition.trim().length > 0
+			const deleteConditionProvided = String(deleteCondition || '').trim().length > 0
 			const isMappingComplete = allFieldsBound && deleteConditionProvided
 
 			// Always include mapping_complete
@@ -2060,7 +2060,7 @@ export default function FieldBindings() {
 					</Button>
 					{(() => {
 						const deleteConditionKey = 'delete_condition'
-						const deleteConditionValue = wizard.bindingMappings[deleteConditionKey] || blueprintBindingsData?.delete_condition || ''
+						const deleteConditionValue = String(wizard.bindingMappings[deleteConditionKey] || blueprintBindingsData?.delete_condition || '')
 						const hasValue = deleteConditionValue.trim().length > 0
 						const status = hasValue
 							? { status: 'bound' as const, icon: CheckCircle2, color: 'text-emerald-500' }
@@ -2084,7 +2084,7 @@ export default function FieldBindings() {
 					})()}
 				</div>
 				<Input
-					value={wizard.bindingMappings['delete_condition'] || blueprintBindingsData?.delete_condition || ''}
+					value={String(wizard.bindingMappings['delete_condition'] || blueprintBindingsData?.delete_condition || '')}
 					onChange={(e) => {
 						wizard.setBindingMappings((prev) => ({
 							...prev,
@@ -2112,7 +2112,7 @@ export default function FieldBindings() {
 					</Button>
 				</div>
 				<Input
-					value={wizard.bindingMappings['where_clause'] || blueprintBindingsData?.where_clause || ''}
+					value={String(wizard.bindingMappings['where_clause'] || blueprintBindingsData?.where_clause || '')}
 					onChange={(e) => {
 						wizard.setBindingMappings((prev) => ({
 							...prev,

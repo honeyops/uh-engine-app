@@ -1,0 +1,73 @@
+
+BUILD
+cd "c:\Users\carla\unified-honey\uh-engine-app\uh-engine-app" && docker buildx build --no-cache --platform=linux/amd64 -t goistmo-uswest.registry.snowflakecomputing.com/uh_engine_app_database/public/images/uh_engine_app_service ./service
+
+PUSH
+cd c:/Users/carla/unified-honey/uh-engine-app/uh-engine-app && snow spcs image-registry login && docker image push goistmo-uswest.registry.snowflakecomputing.com/uh_engine_app_database/public/images/uh_engine_app_service
+
+DEPLOY
+cd "c:\Users\carla\unified-honey\uh-engine-app\uh-engine-app" && snow app teardown --cascade --force && snow app run
+
+BIND WAREHOUSE
+cd "c:\Users\carla\unified-honey\uh-engine-app\uh-engine-app" && snow sql -q "GRANT USAGE, OPERATE ON WAREHOUSE NATIVE_APP_WH TO APPLICATION UNIFIED_HONEY_APPLICATION"
+cd "c:\Users\carla\unified-honey\uh-engine-app\uh-engine-app" && snow sql -q "SELECT SYSTEM"'$'"REFERENCE('WAREHOUSE', 'NATIVE_APP_WH', 'PERSISTENT')"
+cd "c:\Users\carla\unified-honey\uh-engine-app\uh-engine-app" && snow sql -q "USE DATABASE UNIFIED_HONEY_APPLICATION; CALL config.register_warehouse('consumer_warehouse', 'ADD', SYSTEM"'$'"REFERENCE('WAREHOUSE', 'NATIVE_APP_WH', 'PERSISTENT'))"
+
+SET WAREHOUSE IN UI
+
+
+
+
+Troubleshooting
+cd "c:\Users\carla\unified-honey\uh-engine-app\uh-engine-app" && snow sql -q "USE DATABASE UNIFIED_HONEY_APPLICATION; SHOW REFERENCES IN APPLICATION UNIFIED_HONEY_APPLICATION"
+
+
+
+
+
+ADDITION SF QUERIES
+cd "c:\Users\carla\unified-honey\uh-engine-app\uh-engine-app" && snow sql -q "SHOW GRANTS ON WAREHOUSE NATIVE_APP_WH"
+cd "c:\Users\carla\unified-honey\uh-engine-app\uh-engine-app" && snow sql -q "USE DATABASE UNIFIED_HONEY_APPLICATION; SHOW PROCEDURES LIKE 'register_warehouse' IN SCHEMA config"
+cd "c:\Users\carla\unified-honey\uh-engine-app\uh-engine-app" && snow sql -q "USE DATABASE UNIFIED_HONEY_APPLICATION; CALL setup.create_service(ARRAY_CONSTRUCT())"
+
+
+
+
+
+cd "c:\Users\carla\unified-honey\uh-engine-app\uh-engine-app" && snow sql -q "SHOW REFERENCES IN APPLICATION UNIFIED_HONEY_APPLICATION"
+
+cd "c:\Users\carla\unified-honey\uh-engine-app\uh-engine-app" && snow sql -q "USE DATABASE UNIFIED_HONEY_APPLICATION; SELECT SYSTEM"'$'"GET_SERVICE_STATUS('services.uh_engine_app_service')"
+
+cd "c:\Users\carla\unified-honey\uh-engine-app\uh-engine-app" && snow sql -q "USE DATABASE UNIFIED_HONEY_APPLICATION; CALL config.register_warehouse('consumer_warehouse', 'ADD', SYSTEM"'$'"REFERENCE('WAREHOUSE', 'NATIVE_APP_WH', 'PERSISTENT'))"
+
+cd "c:\Users\carla\unified-honey\uh-engine-app\uh-engine-app" && snow sql -q "SELECT CURRENT_ROLE(), CURRENT_USER()"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Question: why did I not need this last night to work? was there some manual code we ran to set this that hid the fact weee need this python function to do it dynamically?
+Answer: Great question! Yes, you're exactly right. Here's what happened: Why it worked last night: When you ran this command from your manual.txt:
+snow sql -q "USE DATABASE UNIFIED_HONEY_APPLICATION; CALL config.register_warehouse('consumer_warehouse', 'ADD', SYSTEM$REFERENCE('WAREHOUSE', 'NATIVE_APP_WH', 'PERSISTENT'))"
+This bound the warehouse reference in Snowflake's system. Then when the service started, the pooled connection was created once and reused. That initial connection might have:
+Had SNOWFLAKE_WAREHOUSE env var set from the service startup
+Or the connection inherited the warehouse from the session context
+Why it stopped working: The connection pool eventually resets (service restart, timeout, etc.), and when it recreates the connection:
+os.getenv("SNOWFLAKE_WAREHOUSE") returns None in SPCS
+The previous code at line 90 checked if os.path.isfile(token_path) and warehouse:
+Since warehouse was None, it skipped the USE WAREHOUSE command entirely
+Result: No active warehouse selected
+The fix we just added: Now the code actively retrieves the warehouse from SYSTEM$GET_ALL_REFERENCES (lines 25-47), which queries Snowflake for the bound warehouse reference. This makes it work permanently and dynamically without relying on environment variables. The build is still running - once it completes, we'll push and deploy the fixed version. Let me check the build progress:

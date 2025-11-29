@@ -420,16 +420,17 @@ async def _deploy_single_fact_streaming(
                 # Update the attribute_table name to use binding_object
                 attr_table["name"] = binding_object
 
-                # Update database/schema - prioritize fact-specific, then fall back to blueprint target, then dimensional_models defaults
-                dimensional_models_config = dimensional_models_loader.get_all()
-                if not attr_table.get("database"):
-                    attr_table["database"] = (blueprint_target_db or
-                                              dimensional_models_config.get("source_database") or
-                                              dimensional_models_config.get("model_database"))
-                if not attr_table.get("schema"):
-                    attr_table["schema"] = (blueprint_target_schema or
-                                           dimensional_models_config.get("source_schema") or
-                                           dimensional_models_config.get("model_schema"))
+            # Update database/schema - prioritize fact-specific, then fall back to blueprint target, then dimensional_models defaults
+            # Note: This runs even if binding_object is None, to ensure database/schema are always set
+            dimensional_models_config = dimensional_models_loader.get_all()
+            if not attr_table.get("database"):
+                attr_table["database"] = (blueprint_target_db or
+                                          dimensional_models_config.get("source_database") or
+                                          dimensional_models_config.get("model_database"))
+            if not attr_table.get("schema"):
+                attr_table["schema"] = (blueprint_target_schema or
+                                       dimensional_models_config.get("source_schema") or
+                                       dimensional_models_config.get("model_schema"))
 
         yield {
             "timestamp": datetime.utcnow().isoformat(),

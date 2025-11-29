@@ -25,9 +25,10 @@ config_database = {
 }
 
 # Snowflake data table configuration for Openflow page
+# This table is stored in the application database (core schema)
 snowflake_data_table = {
-    "database_name": os.getenv("SNOWFLAKE_DATA_DATABASE_NAME", "LANDING_ZONE"),
-    "schema_name": os.getenv("SNOWFLAKE_DATA_SCHEMA_NAME", "CDC_METADATA"),
+    "database_name": os.getenv("SNOWFLAKE_DATA_DATABASE_NAME") or config_database_name,
+    "schema_name": os.getenv("SNOWFLAKE_DATA_SCHEMA_NAME", "core"),
     "table_name": os.getenv("SNOWFLAKE_DATA_TABLE_NAME", "CDC_STATE_METADATA")
 }
 

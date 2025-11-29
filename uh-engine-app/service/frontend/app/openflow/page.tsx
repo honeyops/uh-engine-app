@@ -421,7 +421,9 @@ export default function OpenflowPage() {
 								{error ? (
 									<TableRow>
 										<TableCell colSpan={6} className="h-24 text-center text-destructive">
-											Error loading snapshot states: {error instanceof Error ? error.message : 'Unknown error'}
+											{error instanceof Error && error.message.includes("Can't find OpenFlow configuration table")
+												? "Can't find OpenFlow configuration table"
+												: `Error loading snapshot states: ${error instanceof Error ? error.message : 'Unknown error'}`}
 										</TableCell>
 									</TableRow>
 								) : isLoading ? (
