@@ -165,8 +165,14 @@ class SQLRenderer:
         # Delete condition from blueprint
         t["delete_condition"] = bp.get("delete_condition")
 
-        # Ingest time default
-        t["ingest_time"] = bp.get("ingest_time_binding") or bp.get("ingest_time", "INGEST_TIME")
+        # Ingest time default - use CURRENT_TIMESTAMP() if no binding specified
+        ingest_time_binding = bp.get("ingest_time_binding") or bp.get("ingest_time")
+        if ingest_time_binding:
+            t["ingest_time"] = ingest_time_binding
+            t["ingest_time_use_current"] = False
+        else:
+            t["ingest_time"] = "INGEST_TIME"  # Column alias name
+            t["ingest_time_use_current"] = True  # Flag to use CURRENT_TIMESTAMP() instead
 
         # Columns mapping
         cols = []
@@ -252,6 +258,10 @@ class SQLRenderer:
             target_config["database"] = self.target_database_override.upper()
             # Note: stage database is NOT overridden - it stays as configured in Snowflake config tables
         
+        # Get warehouse from environment variable (set in service_spec.yml)
+        import os
+        warehouse = os.getenv("SNOWFLAKE_WAREHOUSE", "NATIVE_APP_WH")
+        
         return {
             "target": target_config,
             "stage": stage_config,
@@ -263,6 +273,7 @@ class SQLRenderer:
             "secondary_nodes": self.table.get("secondary_nodes", []),
             "columns": self.table.get("columns", []),
             "delete_condition": self.table.get("delete_condition"),
+            "warehouse": warehouse,
         }
 
     def render(self, template_name: str, extra_context: Optional[dict] = None) -> str:

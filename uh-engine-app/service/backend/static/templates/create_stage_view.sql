@@ -28,7 +28,11 @@ SELECT
 {%- for col, ctype in unique_cols %}
     {{ col | upper }},
 {%- endfor %}
+{%- if ingest_time_use_current is defined and ingest_time_use_current %}
+    CURRENT_TIMESTAMP() AS {{ ingest_time | upper }},
+{%- else %}
     {{ ingest_time | upper }},
+{%- endif %}
     COALESCE({% if delete_condition is defined and delete_condition %}{{ delete_condition }}{% else %}FALSE{% endif %}, FALSE) AS IS_DELETED
 FROM {{ database | upper }}.{{ schema | upper }}.{{ name | upper }}
 {%- if where_clause is defined and where_clause %}

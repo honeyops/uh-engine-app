@@ -4,7 +4,7 @@
 {%- set schema = target.schema | upper -%}
 
 CREATE {% if replace_objects %}OR REPLACE TASK{% else %}TASK IF NOT EXISTS{% endif %} {{ stage.database | upper }}.{{ stage.schema | upper }}.TASK_{{ name }}
-    WAREHOUSE = DEVELOPER_WH
+    WAREHOUSE = {{ warehouse | upper }}
 WHEN SYSTEM$STREAM_HAS_DATA('{{ stage.database | upper }}.{{ stage.schema | upper }}.STREAM_{{ name }}')
 AS
 INSERT ALL
