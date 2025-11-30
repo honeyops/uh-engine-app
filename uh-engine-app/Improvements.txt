@@ -1,3 +1,18 @@
-When a table is selected without a previous mapping it still asks to clear
-__NONE__ shows in te field combos
-Deploy doesn't run as it deploys
+Steps for deploy:
+- Click grant on the app install page
+- activate app (this can take a while)
+- run the below after activate
+    GRANT USAGE, OPERATE ON WAREHOUSE NATIVE_APP_WH TO APPLICATION UNIFIED_HONEY_APPLICATION;
+    GRANT USAGE ON DATABASE UNIFIED_HONEY TO APPLICATION UNIFIED_HONEY_APPLICATION;
+
+    GRANT USAGE ON DATABASE <source db> TO APPLICATION UNIFIED_HONEY_APPLICATION;
+    GRANT USAGE ON SCHEMA <source db>.<source schema>   TO APPLICATION UNIFIED_HONEY_APPLICATION;
+    GRANT SELECT ON ALL TABLES IN SCHEMA <source db>.<source schema> TO APPLICATION UNIFIED_HONEY_APPLICATION;
+    GRANT SELECT ON ALL VIEWS IN SCHEMA <source db>.<source schema> TO APPLICATION UNIFIED_HONEY_APPLICATION;
+
+- launch the app
+
+Issues Identified for fix later:
+- When a table is selected without a previous mapping it still asks to clear the bindings
+- __NONE__ shows in te field combos
+- Deploy doesn't run as it deploys

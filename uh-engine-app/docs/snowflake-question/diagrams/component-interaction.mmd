@@ -1,0 +1,49 @@
+graph TB
+    subgraph "Frontend Layer"
+        UI_COMPONENTS["React Components<br/>- Dashboard<br/>- Model Catalog<br/>- Governance<br/>- OpenFlow"]
+        NEXTJS_API["Next.js API Routes<br/>/api/model-catalog/*"]
+        STATE_MGMT["State Management<br/>Zustand + React Query"]
+        
+        UI_COMPONENTS --> STATE_MGMT
+        UI_COMPONENTS --> NEXTJS_API
+    end
+    
+    subgraph "Backend Layer"
+        API_ROUTERS["FastAPI Routers<br/>- utilities<br/>- blueprints<br/>- dimensional_models<br/>- governance<br/>- dashboard<br/>- openflow"]
+        CORE_MODULES["Core Modules<br/>- snowflake.py<br/>- sql_render.py<br/>- config_loader.py<br/>- references.py"]
+        SQL_TEMPLATES["SQL Templates<br/>Jinja2 templates<br/>- create_model.sql<br/>- create_fact_view.sql<br/>- deploy_database.sql"]
+        
+        API_ROUTERS --> CORE_MODULES
+        CORE_MODULES --> SQL_TEMPLATES
+    end
+    
+    subgraph "Data Layer"
+        SNOWFLAKE_CONN["Snowflake Connector<br/>OAuth Authentication"]
+        CONFIG_TABLES["Configuration Tables<br/>core.config_*"]
+        SOURCE_DATA["Source Data<br/>Consumer-granted"]
+        TRANSFORMED_DATA["Transformed Data<br/>UNIFIED_HONEY.*"]
+        
+        SNOWFLAKE_CONN --> CONFIG_TABLES
+        SNOWFLAKE_CONN --> SOURCE_DATA
+        SNOWFLAKE_CONN --> TRANSFORMED_DATA
+    end
+    
+    subgraph "Infrastructure"
+        DOCKER_CONTAINER["Docker Container<br/>Multi-stage build"]
+        SPCS_RUNTIME["SPCS Runtime<br/>Snowflake-managed"]
+        COMPUTE_RESOURCES["Compute Resources<br/>CPU_X64_XS"]
+        
+        DOCKER_CONTAINER --> SPCS_RUNTIME
+        SPCS_RUNTIME --> COMPUTE_RESOURCES
+    end
+    
+    UI_COMPONENTS -.HTTP.-> API_ROUTERS
+    API_ROUTERS --> SNOWFLAKE_CONN
+    CORE_MODULES --> SNOWFLAKE_CONN
+    SNOWFLAKE_CONN --> DOCKER_CONTAINER
+    
+    style UI_COMPONENTS fill:#e8f5e9
+    style API_ROUTERS fill:#fff4e1
+    style SNOWFLAKE_CONN fill:#e1f5ff
+    style DOCKER_CONTAINER fill:#f3e5f5
+

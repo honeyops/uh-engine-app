@@ -1,0 +1,15 @@
+graph LR
+    BUILD["Build<br/>Docker Image"]
+    DEPLOY["Deploy<br/>Push to Registry"]
+    INSTALL["Install<br/>Create App Instance"]
+    ACTIVATE["Activate<br/>Start Service"]
+    
+    BUILD --> DEPLOY
+    DEPLOY --> INSTALL
+    INSTALL --> ACTIVATE
+    
+    style BUILD fill:#e8f5e9
+    style DEPLOY fill:#fff4e1
+    style INSTALL fill:#e1f5ff
+    style ACTIVATE fill:#f3e5f5
+

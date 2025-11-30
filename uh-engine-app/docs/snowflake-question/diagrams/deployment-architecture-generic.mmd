@@ -1,0 +1,49 @@
+graph TB
+    subgraph "Build Phase"
+        SOURCE_CODE["Source Code<br/>Git Repository"]
+        DOCKERFILE["Dockerfile<br/>Multi-stage build"]
+        BUILD_IMAGE["Build Image<br/>Base image for build"]
+        FINAL_IMAGE["Final Image<br/>Runtime base image"]
+        
+        SOURCE_CODE --> DOCKERFILE
+        DOCKERFILE --> BUILD_IMAGE
+        BUILD_IMAGE --> FINAL_IMAGE
+    end
+    
+    subgraph "Deployment Phase"
+        SNOWFLAKE_REGISTRY["Snowflake Registry<br/>Image repository"]
+        APP_PACKAGE["Application Package<br/>&lt;app_name&gt;_pkg"]
+        APP_INSTANCE["Application Instance<br/>&lt;app_name&gt;"]
+        
+        FINAL_IMAGE --> SNOWFLAKE_REGISTRY
+        SNOWFLAKE_REGISTRY --> APP_PACKAGE
+        APP_PACKAGE --> APP_INSTANCE
+    end
+    
+    subgraph "Runtime Phase"
+        GRANT_CALLBACK["Grant Callback<br/>Setup procedure"]
+        COMPUTE_POOL_CREATE["Create Compute Pool<br/>&lt;app_db&gt;_app_pool"]
+        SERVICE_CREATE["Create Service<br/>Container service"]
+        DB_CREATE["Create Application Database<br/>&lt;app_data_db&gt;"]
+        
+        APP_INSTANCE --> GRANT_CALLBACK
+        GRANT_CALLBACK --> COMPUTE_POOL_CREATE
+        GRANT_CALLBACK --> SERVICE_CREATE
+        GRANT_CALLBACK --> DB_CREATE
+    end
+    
+    subgraph "Activation Phase"
+        CONSUMER_GRANTS["Consumer Grants<br/>- Warehouse reference<br/>- Source DB access"]
+        SERVICE_START["Service Starts<br/>Container running"]
+        ENDPOINT_ACTIVE["Endpoint Active<br/>Public endpoint"]
+        
+        COMPUTE_POOL_CREATE --> CONSUMER_GRANTS
+        SERVICE_CREATE --> SERVICE_START
+        SERVICE_START --> ENDPOINT_ACTIVE
+    end
+    
+    style FINAL_IMAGE fill:#e8f5e9
+    style APP_INSTANCE fill:#fff4e1
+    style SERVICE_START fill:#e1f5ff
+    style ENDPOINT_ACTIVE fill:#f3e5f5
+

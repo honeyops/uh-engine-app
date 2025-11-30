@@ -58,8 +58,9 @@ as $$
         -- Grant privileges on application database STAGE schema to app_public
         begin
             grant usage on schema identifier(:stage_schema_name) to application role app_public;
-            grant create view, create stream, create table, create temporary table
+            grant create view, create stream, create table, create temporary table, create task
                 on schema identifier(:stage_schema_name) to application role app_public;
+            grant execute task on schema identifier(:stage_schema_name) to application role app_public;
         exception
             when other then
                 -- If grants fail, continue anyway (may already exist or have permission issues)

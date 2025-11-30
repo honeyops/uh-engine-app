@@ -1,0 +1,17 @@
+graph LR
+    subgraph "Security Layers"
+        AUTH["Authentication<br/>Snowflake OAuth"]
+        NETWORK["Network<br/>No External Access"]
+        DATA["Data<br/>Consumer Account Only"]
+        CONTAINER["Container<br/>Minimal Base Image"]
+    end
+    
+    AUTH --> NETWORK
+    NETWORK --> DATA
+    DATA --> CONTAINER
+    
+    style AUTH fill:#e3f2fd
+    style NETWORK fill:#f1f8e9
+    style DATA fill:#fff3e0
+    style CONTAINER fill:#f3e5f5
+

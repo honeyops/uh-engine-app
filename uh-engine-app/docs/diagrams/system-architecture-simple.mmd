@@ -1,0 +1,35 @@
+graph TB
+    subgraph "Consumer Snowflake Account"
+        USER["Authenticated User"]
+        WEB_UI["Web UI"]
+        
+        subgraph "Native App"
+            CONTAINER["Container Service<br/>Next.js + FastAPI"]
+            APP_DB["Application Database<br/>UNIFIED_HONEY_APPLICATION"]
+            UH_DB["Data Database<br/>UNIFIED_HONEY"]
+        end
+        
+        SOURCE_DATA["Source Data<br/>(Consumer-granted)"]
+        WAREHOUSE["Warehouse<br/>(Consumer-provided)"]
+    end
+    
+    subgraph "Snowflake Infrastructure"
+        SPCS["Snowflake Container Services"]
+        OAUTH["OAuth Authentication"]
+    end
+    
+    USER --> WEB_UI
+    WEB_UI --> CONTAINER
+    CONTAINER --> APP_DB
+    CONTAINER --> UH_DB
+    CONTAINER --> SOURCE_DATA
+    CONTAINER --> WAREHOUSE
+    CONTAINER --> OAUTH
+    OAUTH --> SPCS
+    
+    style CONTAINER fill:#e1f5ff
+    style APP_DB fill:#f3e5f5
+    style UH_DB fill:#f3e5f5
+    style SOURCE_DATA fill:#fff9c4
+    style OAUTH fill:#ffebee
+

@@ -1,0 +1,22 @@
+sequenceDiagram
+    participant User as User
+    participant UI as Web UI
+    participant API as Backend API
+    participant SF as Snowflake
+    
+    User->>UI: Access Application
+    UI->>API: API Request
+    API->>SF: Authenticate (OAuth)
+    SF-->>API: Connected
+    
+    alt Read Data
+        API->>SF: Query Source Data
+        SF-->>API: Data
+    else Transform Data
+        API->>SF: Process & Transform
+        SF-->>API: Complete
+    end
+    
+    API-->>UI: Response
+    UI-->>User: Display Results
+

@@ -1,0 +1,31 @@
+graph TB
+    subgraph "High-Level Architecture"
+        USER["User"]
+        
+        subgraph "Application"
+            FRONTEND["Frontend<br/>Next.js"]
+            BACKEND["Backend<br/>FastAPI"]
+        end
+        
+        subgraph "Data"
+            CONFIG["Config DB<br/>Application Settings"]
+            DATA["Data DB<br/>Transformed Models"]
+            SOURCE["Source Data<br/>Consumer Tables"]
+        end
+        
+        SNOWFLAKE["Snowflake<br/>Platform"]
+    end
+    
+    USER --> FRONTEND
+    FRONTEND --> BACKEND
+    BACKEND --> CONFIG
+    BACKEND --> DATA
+    BACKEND --> SOURCE
+    BACKEND --> SNOWFLAKE
+    
+    style FRONTEND fill:#e8f5e9
+    style BACKEND fill:#fff4e1
+    style DATA fill:#f3e5f5
+    style SOURCE fill:#fff9c4
+    style SNOWFLAKE fill:#e1f5ff
+

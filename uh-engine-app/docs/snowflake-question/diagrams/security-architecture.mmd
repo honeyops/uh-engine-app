@@ -1,0 +1,47 @@
+graph LR
+    subgraph "Authentication & Authorization"
+        USER_AUTH["User Authentication<br/>Snowflake Login"]
+        OAUTH_TOKEN["OAuth Token<br/>Service Authentication"]
+        RBAC["Role-Based Access Control<br/>Snowflake RBAC"]
+        
+        USER_AUTH --> RBAC
+        OAUTH_TOKEN --> RBAC
+    end
+    
+    subgraph "Network Security"
+        NO_EGRESS["No External Egress<br/>0.0.0.0 not used"]
+        INTERNAL_ONLY["Internal Communication<br/>localhost only"]
+        SNOWFLAKE_API["Snowflake API Only<br/>Via Connector"]
+        
+        NO_EGRESS --> INTERNAL_ONLY
+        INTERNAL_ONLY --> SNOWFLAKE_API
+    end
+    
+    subgraph "Data Security"
+        DATA_ISOLATION["Data Isolation<br/>Consumer Account Only"]
+        READ_ONLY_SOURCE["Read-Only Source Access<br/>SELECT only"]
+        CONSUMER_CONTROL["Consumer Controls<br/>GRANT/REVOKE"]
+        
+        DATA_ISOLATION --> READ_ONLY_SOURCE
+        READ_ONLY_SOURCE --> CONSUMER_CONTROL
+    end
+    
+    subgraph "Container Security"
+        BASE_IMAGE["Minimal Base Image<br/>python:3.10-slim"]
+        CVE_SCAN["CVE Scanning<br/>Regular scans"]
+        NO_ROOT["Non-Root User<br/>(Planned)"]
+        
+        BASE_IMAGE --> CVE_SCAN
+        CVE_SCAN --> NO_ROOT
+    end
+    
+    USER_AUTH --> DATA_ISOLATION
+    OAUTH_TOKEN --> DATA_ISOLATION
+    RBAC --> CONSUMER_CONTROL
+    NO_EGRESS --> DATA_ISOLATION
+    
+    style USER_AUTH fill:#e3f2fd
+    style OAUTH_TOKEN fill:#e3f2fd
+    style DATA_ISOLATION fill:#fff3e0
+    style NO_EGRESS fill:#f1f8e9
+

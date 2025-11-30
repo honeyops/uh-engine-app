@@ -1,0 +1,41 @@
+sequenceDiagram
+    participant User as Authenticated User
+    participant WebUI as Web UI (Next.js)
+    participant API as FastAPI Backend
+    participant Snowflake as Snowflake (via Connector)
+    participant SourceDB as Source Databases
+    participant AppDB as UNIFIED_HONEY DB
+    participant ConfigDB as Application Config DB
+    
+    User->>WebUI: Access via Snowflake UI
+    WebUI->>API: API Request (/api/v1/*)
+    
+    Note over API: Authenticates via OAuth token<br/>from /snowflake/session/token
+    
+    API->>Snowflake: Connect (OAuth)
+    Snowflake-->>API: Connection established
+    
+    alt Read Source Data
+        API->>Snowflake: SHOW DATABASES (discover)
+        Snowflake-->>API: List of accessible databases
+        API->>Snowflake: SELECT FROM source_table
+        Snowflake->>SourceDB: Query source data
+        SourceDB-->>Snowflake: Return data
+        Snowflake-->>API: Query results
+        API-->>WebUI: JSON response
+    else Read Configuration
+        API->>Snowflake: SELECT FROM config tables
+        Snowflake->>ConfigDB: Query config
+        ConfigDB-->>Snowflake: Config data
+        Snowflake-->>API: Configuration
+        API-->>WebUI: JSON response
+    else Write Transformed Data
+        API->>Snowflake: CREATE/INSERT INTO UNIFIED_HONEY
+        Snowflake->>AppDB: Write transformed data
+        AppDB-->>Snowflake: Confirmation
+        Snowflake-->>API: Success
+        API-->>WebUI: Success response
+    end
+    
+    WebUI-->>User: Display results
+
